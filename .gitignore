@@ -1,0 +1,10 @@
+# Virtual environment
+.venv/
+
+# pychache
+
+__pychache__/
+
+# Ignore everything inside DataKod except .npz files and Python scripts
+DataKod/*
+!DataKod/*.py
