@@ -1,71 +1,79 @@
-#%%
-# import libraries and our code
-from kraftverkssimulering import Simulation, GenerateFrequency
+# %%
+from kraftverkssimulering import GenerateFrequency, Simulation
 import numpy as np
 
-
 # %%
-# Generate our constants
-tempSignal = GenerateFrequency(60*60, 50, 500, 0.02)
+n=60*10*2000  ##Mste vara time (s)*samples/s
+dailyPrice = 22.3
+aFRRPrice = 27
+FCRPrice = 22
+tempSignal = GenerateFrequency(60 * 10, 50, 2000, 0.02)
 signal = {
-'frequencies' : tempSignal.frequency_signal,
-'time' : tempSignal.time,
-'prices' : [] 
+    "frequencies": tempSignal.frequency_signal,
+    "time": tempSignal.time,
+    "prices": [np.full(n,dailyPrice), np.full(n,aFRRPrice), np.full(n,FCRPrice)],  # daily, aFRR, FCR
 }
 
-#%%
+# %%
 # Format: (p, i, setpoint, error_deadzone, mini, maxi)
-
-# Battery handles the HIGH-PASS (fast) frequency fluctuations (±5 MW)
-# High P to react instantly to spikes; I = 0 (or very small) because the highpass filter already removes steady-state offset
 batteryController = (
-    25e6,  # p: 25 MW/Hz -> reaches full 5 MW output at a 0.2 Hz frequency deviation (5e6 / 0.2)
-    0.0,  # i: Keep at 0 when fed by a highpass filter (or small, e.g., 1e5, if fed raw error)
-    0.0,  # setpoint: 0.0 if input is already highpass-filtered deviation; 50.0 if input is raw Hz
-    0.005,  # error_deadzone: ±0.005 Hz deadband to prevent constant micro-cycling
-    -5e6,  # mini: -5 MW (matches maxPowerCharge)
-    5e6,  # maxi: +5 MW (matches maxPowerDischarge)
+    25e6,
+    0.0,
+    0.0,
+    0.005,
+    -5e6,
+    5e6,
 )
 
-# Generator handles the LOW-PASS (slow) frequency trends (e.g., 0 to 10 MW)
-# Lower P, higher I to smoothly restore grid frequency over tens of seconds/minutes
 guideVaneController = (
-    1,  # p: 
-    0.2,  # i: 
-    50.0,  # setpoint: 50.0 Hz nominal grid frequency
-    0.00,  # error_deadzone: 
-    0,  # mini:
-    1,  # maxi:
+    2,
+    0.2,
+    50.0,
+    0.005,
+    0.5,
+    0.8,
 )
 
-# chargeInWatt (or Joules/Wh), maxCharge, maxPowerCharge, maxPowerDischarge
-# Note: Check if chargeInWatt is > maxCharge in your code (10e6 vs 5e6)!
+# chargeWh, maxChargeWh, maxPowerChargeW, maxPowerDischargeW
 battery = (2.5e6, 5e6, 5e6, 5e6)
-# angle, maxAngleChange, minAngle, maxAngle
+
+# angle, maxAngleChange (rad/s or deg/s per second), minAngle, maxAngle
 guideVane = (0.65, 0.02, 0.5, 0.8)
+
 # cutoff frequency (Hz), filter order
-# Note: Must be less than half your sampling rate (Nyquist limit)!
-lowpass = (0.05, 2)  # Passes slow changes (> 20 second period) to the generator
-highpass = (0.05, 2)  # Passes fast changes (< 20 second period) to the battery
+for i in range(1,31):
+    Ts=i
+    frequencyCutoff = 1 / Ts
+    lowpass = (frequencyCutoff, 2)
+    highpass = (frequencyCutoff, 2)
 
-maxPower = 100e6 # Max power of power plant
-PK = 1 # some constant for the wear
+    maxPower = 100e6
+    PK = 24
+    k_direct = 6
 
-# %%
-mySim = Simulation(
-    signal, battery, guideVane,
-    guideVaneController, batteryController, 
-    lowpass, highpass,
-    maxPower, PK)
+    # %%
+    mySim = Simulation(
+        signal,
+        battery,
+        guideVane,
+        guideVaneController,
+        batteryController,
+        lowpass,
+        highpass,
+        maxPower,
+        PK,
+        k_direct,
+    )
 
-mySim.run()
+    mySim.run()
+    mySim.calculateRevenue()
 
+    # %%
+    # mask = (0, 1/6)
+    # mySim.plot.frequency(mask=mask)
+    # mySim.plot.battery(mask=mask)
+    # mySim.plot.guideVane(mask=mask)
+    # mySim.plot.generatorPower(mask=mask)
+    # mySim.plot.generatorPower(mask=mask, overlay_freq=True)
 
-# %%
-
-mySim.plot.frequency(mask=(100,300))
-mySim.plot.batterySimulation(mask=(100,300))
-mySim.plot.guideVaneSimulation(mask=(100,300))
-mySim.plot.powerSimulation(mask=(100,300))
-
-# %%
+    print("Ts=", Ts, " Cost of guide vane wear: ",np.round(mySim.guideVane.guideWear,0), " SEK     Income:", f"{np.round(mySim.revenue['total'] * 11.15,0):,.2f} kr".replace(",", " ") )

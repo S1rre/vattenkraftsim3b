@@ -49,12 +49,12 @@ batteryController = (
 
 # Generator handles the LOW-PASS
 guideVaneController = (
-    0.03,       # p: 
-    0.00005,    # i: 
+    2,       # p: 
+    0.2,    # i: 
     50.0,       # setpoint
     0.005,      # error_deadzone: 
-    -0.02,      # mini: 
-    0.02,       # maxi:
+    0.5,      # mini: 
+    0.8,       # maxi:
 )
 
 # chargeInWatt (or Joules/Wh), maxCharge, maxPowerCharge, maxPowerDischarge
@@ -72,7 +72,7 @@ guideVane = (0.65, 0.02, 0.5, 0.8)
 # Note: Must be less than half your sampling rate (Nyquist limit)!
 
 cutoffFrequency = 1/200 # 
-filterOrder = 2 # 2 should be okay here
+filterOrder = 3 # 2 should be okay here
 
 # Uses the same because: The cutoff freq should be the same because we dont have any penalty for unregulated
 lowpass     = (cutoffFrequency, filterOrder)
